@@ -1,3 +1,6 @@
+import base64
+import pickle
+
 from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
@@ -30,6 +33,8 @@ LANDING = """<!doctype html>
             <!-- TODO before launch: the /greet endpoint still renders the
                  visitor's name straight through the template engine. Remove
                  or sanitize it. e.g. /greet?name=YourName -->
+            <!-- Also pending: /api/prefs restores the user's saved settings
+                 from a base64 pickled 'prefs' value. Migrate off pickle. -->
         </div>
     </div>
 </body>
@@ -44,8 +49,8 @@ def index():
 @app.route("/greet")
 def greet():
     name = request.args.get("name", "guest")
-    # VULNERABLE BY DESIGN: user input is concatenated into the template source
-    # and handed to Jinja2, which evaluates {{ ... }} expressions in it.
+    # VULNERABLE BY DESIGN (entry #1): user input is concatenated into the template
+    # source and handed to Jinja2, which evaluates {{ ... }} expressions in it.
     # Server-Side Template Injection -> RCE as the 'app' user. e.g.:
     #   /greet?name={{7*7}}
     #   /greet?name={{cycler.__init__.__globals__.os.popen('id').read()}}
@@ -53,6 +58,22 @@ def greet():
     return render_template_string(tpl)
 
 
+@app.route("/api/prefs")
+def prefs():
+    raw = request.args.get("prefs") or request.cookies.get("prefs")
+    if not raw:
+        # Show the expected format so the endpoint is discoverable.
+        sample = base64.b64encode(pickle.dumps({"theme": "dark"})).decode()
+        return ("No prefs provided. Send ?prefs=<base64> or a 'prefs' cookie.\n"
+                "Example value: " + sample + "\n")
+    # VULNERABLE BY DESIGN (entry #2): untrusted input is base64-decoded and passed
+    # to pickle.loads, which executes the object's __reduce__ on deserialization.
+    # Insecure deserialization -> RCE as the 'app' user.
+    data = pickle.loads(base64.b64decode(raw))
+    return "Preferences loaded: " + repr(data) + "\n"
+
+
 if __name__ == "__main__":
-    # debug=False on purpose: the SSTI is the intended path, not the Werkzeug console.
+    # debug=False on purpose: the SSTI / pickle RCE are the intended paths,
+    # not the Werkzeug console.
     app.run(host="0.0.0.0", port=5000)

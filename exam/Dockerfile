@@ -1,6 +1,8 @@
 # Vulnerable training lab - EXAM target, single container.
-# Chain: HTTP recon (hint in homepage source) -> Jinja2 SSTI -> RCE as `app`
-#        -> privesc via cap_setuid on a python copy -> root -> /root/flag.txt
+# Two entry paths to a shell as `app`:
+#   #1 Jinja2 SSTI in /greet?name=
+#   #2 insecure pickle deserialization in /api/prefs
+# Then a shared privesc via cap_setuid on a python copy -> root -> /root/flag.txt
 #
 # FOR AUTHORIZED TRAINING / CTF USE ONLY. Never expose to an untrusted network.
 FROM python:3.12-slim
