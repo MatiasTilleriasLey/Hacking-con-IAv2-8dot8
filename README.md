@@ -1,67 +1,71 @@
-# Training labs — AI-assisted hacking course (final class)
+# Laboratorios de entrenamiento — Curso de Hacking con IA (clase final)
 
-> **Authorized training use only.** Both labs are vulnerable by design. They
-> bind only to `127.0.0.1`. Never expose them to an untrusted network.
+> **Solo para uso de entrenamiento autorizado.** Ambos laboratorios son
+> vulnerables a propósito. Escuchan únicamente en `127.0.0.1`. Nunca los
+> expongas a una red no confiable.
 
-Two single-container CTF targets:
+Dos targets CTF de un solo contenedor:
 
-| Lab | Folder | Purpose | Chain |
-|-----|--------|---------|-------|
-| **Demo** | `demo/` | Guided walkthrough in class | FTP recon → SQLi login bypass → command injection (RCE) → privesc (SUID PATH hijack **or** `sudo find`) + LFI side-path + **vsftpd 2.3.4 backdoor** (instant root) |
-| **Exam** | `exam/` | Graded practice / test | HTTP recon → Jinja2 **SSTI** (RCE) → privesc via `cap_setuid` on a python copy |
+| Lab | Carpeta | Propósito | Cadena |
+|-----|---------|-----------|--------|
+| **Demo** | `demo/` | Recorrido guiado en clase | recon FTP → bypass de login por SQLi → command injection (RCE) → privesc (SUID PATH hijack **o** `sudo find`) + LFI como ruta lateral + **backdoor de vsftpd 2.3.4** (root instantáneo) |
+| **Examen** | `exam/` | Práctica evaluada / prueba | recon HTTP → **SSTI** en Jinja2 (RCE) → privesc por `cap_setuid` en una copia de python |
 
-The two labs use different stacks and different vulnerability classes on
-purpose, so the exam can't be solved by copying the demo.
+Los dos laboratorios usan stacks y clases de vulnerabilidad distintas a propósito,
+para que el examen no se resuelva copiando el demo.
 
-## Requirements
-- Docker Desktop (Windows/macOS) or Docker Engine + compose plugin (Linux).
+## Requisitos
+- Docker Desktop (Windows/macOS) o Docker Engine + plugin compose (Linux).
 
-## Launch both labs
+## Levantar ambos laboratorios
 
 **Linux / macOS:**
 ```bash
-./lab.sh          # build + start both, prints how to connect
-./lab.sh down     # stop + remove both
+./lab.sh          # construye + levanta ambos, imprime cómo conectarse
+./lab.sh down     # detiene + elimina ambos
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\lab.ps1         # build + start both, prints how to connect
-.\lab.ps1 down    # stop + remove both
+.\lab.ps1         # construye + levanta ambos, imprime cómo conectarse
+.\lab.ps1 down    # detiene + elimina ambos
 ```
 
-### Ports are automatic
-Each service is published to a **random free host port on `127.0.0.1`**, so it
-never collides with anything you already run. The launcher reads back the ports
-Docker chose and prints a connection table like:
+### Los puertos son automáticos
+Cada servicio se publica en un **puerto host libre al azar en `127.0.0.1`**, así
+nunca choca con nada que ya tengas corriendo. El launcher lee los puertos que
+eligió Docker e imprime una tabla de conexión como esta:
 
 ```
-DEMO lab (class walkthrough):
+Lab DEMO (recorrido en clase):
   Web   : http://127.0.0.1:49173
-  FTP   : ftp 127.0.0.1 49174      (user: anonymous, no password)
-EXAM lab:
+  FTP   : ftp 127.0.0.1 49174      (usuario: anonymous, sin contraseña)
+Lab EXAMEN:
   Web   : http://127.0.0.1:49175
 ```
 
-On **Linux** each target is also a real host at a **fixed container IP** with
-every service on it — ideal for AI-driven recon (`nmap -sV <ip>`, banner/version
-→ CVE). The launcher sets passive FTP to advertise that IP so it works end to end:
+En **Linux** cada target es además un host real con una **IP fija** y todos sus
+servicios en ella — ideal para recon asistido por IA (`nmap -sV <ip>`,
+banner/versión → CVE). El launcher configura el FTP pasivo para que anuncie esa
+IP y funcione de punta a punta:
 
-| Lab | IP | Services |
-|-----|----|----|
-| Demo | `172.30.0.10` | FTP 21 (+passive 21000-21010), HTTP 80 |
-| Exam | `172.31.0.10` | HTTP 5000 |
+| Lab | IP | Servicios |
+|-----|----|-----------|
+| Demo | `172.30.0.10` | FTP 21 (+pasivo 21000-21010), HTTP 80 |
+| Examen | `172.31.0.10` | HTTP 5000 |
 
-The `127.0.0.1` published ports stay available as a fallback. Windows/macOS use
-the `127.0.0.1` ports (Docker Desktop can't route to container IPs).
+Los puertos publicados en `127.0.0.1` siguen disponibles como alternativa.
+Windows/macOS usan los puertos de `127.0.0.1` (Docker Desktop no puede rutear a
+las IP de los contenedores).
 
-### One lab at a time
+### Un laboratorio a la vez
 ```bash
-cd demo && docker compose up -d --build     # just the demo
-docker compose port lab 80                   # see its web port
+cd demo && docker compose up -d --build     # solo el demo
+docker compose port lab 80                   # ver su puerto web
 docker compose down
 ```
 
 ## Flags
-Each lab has a `user` flag (after foothold) and a `root` flag (after privesc).
-Intended solutions for instructors are in each lab's own `README.md`.
+Cada laboratorio tiene una flag de `user` (tras el foothold) y una de `root`
+(tras la escalada). Las soluciones previstas para el instructor están en el
+`README.md` de cada laboratorio.

