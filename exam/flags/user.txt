@@ -1,0 +1,1 @@
+FLAG{ssti_rce_as_app_via_jinja2}

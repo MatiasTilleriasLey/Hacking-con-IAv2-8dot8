@@ -1,0 +1,39 @@
+# CTF DEMO lab — class walkthrough target. Brought up by the launcher scripts
+# (../lab.sh / ../lab.ps1) together with the exam lab.
+#
+# Ports are published to RANDOM free host ports (empty host side) so they never
+# collide with whatever the student already runs. Read the chosen ports with:
+#   docker compose port lab 80      # web
+#   docker compose port lab 21      # ftp control
+# Passive FTP range stays FIXED (21000-21010) and published 1:1, because vsftpd
+# advertises those exact port numbers to the client (pasv_address=127.0.0.1).
+# ponytail: fixed passive range assumes 21000-21010 free; shift it in
+# config/vsftpd.conf + here if a student hits a conflict (rare).
+services:
+  lab:
+    build: .
+    image: ctf-lab-demo
+    container_name: ctf-lab-demo
+    ports:
+      - "127.0.0.1::80"
+      - "127.0.0.1::21"
+      - "127.0.0.1:21000-21010:21000-21010"
+      # vsftpd 2.3.4 backdoor shell (fixed 6200 so the exploit finds it). On Linux
+      # it's also reachable directly at 172.30.0.10:6200.
+      - "127.0.0.1:6200:6200"
+    # On Linux the launcher sets PASV_ADDRESS to the fixed container IP below so
+    # passive FTP works when scanning/connecting to the IP directly. On Win/Mac
+    # it stays 127.0.0.1 (access via the published localhost ports above).
+    environment:
+      - PASV_ADDRESS=${PASV_ADDRESS:-127.0.0.1}
+    networks:
+      ctfnet-demo:
+        ipv4_address: 172.30.0.10
+    restart: "no"
+
+networks:
+  ctfnet-demo:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

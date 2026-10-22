@@ -1,0 +1,16 @@
+# Tooling / regenerated state (not part of the lab)
+.codegraph/
+.atl/
+.hexharness/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Local-only helpers
+.rubrica.html
+.render_pdf.py
+screenshots/

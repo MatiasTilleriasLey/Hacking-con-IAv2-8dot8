@@ -1,0 +1,7 @@
+Internal note - IT team
+------------------------
+Reminder: the web server on port 80 hosts our "Network Diagnostics Tool".
+It is an internal-only utility and has NOT been security reviewed.
+The developer admitted it just shells out to `ping` with whatever you type.
+
+TODO: rotate the backup job. `backup` runs as root from cron for now.

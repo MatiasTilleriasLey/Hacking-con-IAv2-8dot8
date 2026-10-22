@@ -1,0 +1,1 @@
+FLAG{r00t_via_suid_path_hijack_gg}

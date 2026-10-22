@@ -1,0 +1,1 @@
+FLAG{foothold_as_www_data_via_command_injection}

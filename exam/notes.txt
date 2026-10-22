@@ -1,0 +1,10 @@
+ops handover — app service account
+----------------------------------
+The status dashboard runs as this unprivileged user.
+
+Maintenance shortcut left by the previous admin: a dedicated Python build
+lives at /usr/local/bin/pythonpriv. It was granted elevated process
+capabilities so the batch jobs could adjust their own UID without sudo.
+Security review of that decision is still PENDING — do not rely on it.
+
+    getcap /usr/local/bin/pythonpriv

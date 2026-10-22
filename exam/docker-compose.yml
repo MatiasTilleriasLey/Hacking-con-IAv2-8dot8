@@ -1,0 +1,24 @@
+# CTF EXAM lab — single-container web target. Brought up by the launcher scripts
+# (../lab.sh / ../lab.ps1) together with the demo lab.
+#
+# Web port is published to a RANDOM free host port (empty host side) so it never
+# collides with whatever the student already runs. Read the chosen port with:
+#   docker compose port lab 5000
+services:
+  lab:
+    build: .
+    image: ctf-lab-exam
+    container_name: ctf-lab-exam
+    ports:
+      - "127.0.0.1::5000"
+    networks:
+      ctfnet-exam:
+        ipv4_address: 172.31.0.10
+    restart: "no"
+
+networks:
+  ctfnet-exam:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
